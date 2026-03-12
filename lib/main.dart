@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'core/network/http_client.dart';
+import 'data/datasources/product_local_datasource.dart';
 import 'data/datasources/product_remote_datasource.dart';
 import 'data/repositories/product_repository_impl.dart';
 import 'presentation/pages/product_page.dart';
@@ -8,8 +9,9 @@ import 'presentation/viewmodels/product_viewmodel.dart';
 
 void main() {
   final client = AppHttpClient(http.Client());
-  final datasource = ProductRemoteDatasource(client);
-  final repository = ProductRepositoryImpl(datasource);
+  final remoteDatasource = ProductRemoteDatasource(client);
+  final localDatasource = ProductLocalDatasource();
+  final repository = ProductRepositoryImpl(remoteDatasource, localDatasource);
   final viewModel = ProductViewModel(repository);
 
   runApp(MyApp(viewModel: viewModel));
