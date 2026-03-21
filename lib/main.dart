@@ -1,26 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'core/network/http_client.dart';
-import 'data/datasources/product_local_datasource.dart';
-import 'data/datasources/product_remote_datasource.dart';
-import 'data/repositories/product_repository_impl.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'presentation/pages/home_page.dart';
 import 'presentation/pages/product_page.dart';
-import 'presentation/viewmodels/product_viewmodel.dart';
 
 void main() {
-  final client = AppHttpClient(http.Client());
-  final remoteDatasource = ProductRemoteDatasource(client);
-  final localDatasource = ProductLocalDatasource();
-  final repository = ProductRepositoryImpl(remoteDatasource, localDatasource);
-  final viewModel = ProductViewModel(repository);
-
-  runApp(MyApp(viewModel: viewModel));
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {
-  final ProductViewModel viewModel;
-
-  const MyApp({super.key, required this.viewModel});
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +20,11 @@ class MyApp extends StatelessWidget {
         colorSchemeSeed: Colors.blue,
         useMaterial3: true,
       ),
-      home: ProductPage(viewModel: viewModel),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const HomePage(),
+        '/products': (context) => const ProductPage(),
+      },
     );
   }
 }

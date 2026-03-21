@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree /c/Users/vitor/Desktop/Projetos/flutter/projeto_01/mobile_arquitetura_01/lib -I *.lock)",
+      "Bash(flutter pub:*)",
+      "Bash(flutter analyze:*)"
+    ]
+  }
+}

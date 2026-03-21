@@ -1,81 +1,165 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../domain/entities/product.dart';
+import '../providers/providers.dart';
 import '../state/product_state.dart';
-import '../viewmodels/product_viewmodel.dart';
+import 'product_detail_page.dart';
 
-class ProductPage extends StatelessWidget {
-  final ProductViewModel viewModel;
+class ProductPage extends ConsumerStatefulWidget {
+  const ProductPage({super.key});
 
-  const ProductPage({super.key, required this.viewModel});
+  @override
+  ConsumerState<ProductPage> createState() => _ProductPageState();
+}
+
+class _ProductPageState extends ConsumerState<ProductPage> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(productStateProvider.notifier).loadProducts();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Products")),
-      body: ValueListenableBuilder<ProductState>(
-        valueListenable: viewModel.state,
-        builder: (context, state, _) {
-          if (state is ProductLoading) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
+    final state = ref.watch(productStateProvider);
+    final favorites = ref.watch(favoritesProvider);
+    final favCount = ref.watch(favoritesCountProvider);
+    final showFavoritesOnly = ref.watch(showFavoritesOnlyProvider);
 
-          if (state is ProductError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                    const SizedBox(height: 16),
-                    Text(
-                      state.message,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: viewModel.loadProducts,
-                      child: const Text("Tentar novamente"),
-                    ),
-                  ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Produtos"),
+        actions: [
+          if (state is ProductSuccess) ...[
+            IconButton(
+              icon: Icon(
+                showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
+                color: showFavoritesOnly ? Colors.red : null,
+              ),
+              tooltip:
+                  showFavoritesOnly ? 'Mostrar todos' : 'Mostrar favoritos',
+              onPressed: () {
+                ref.read(showFavoritesOnlyProvider.notifier).state =
+                    !showFavoritesOnly;
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Center(
+                child: Badge(
+                  label: Text('$favCount'),
+                  child: const Icon(Icons.star),
                 ),
               ),
-            );
-          }
+            ),
+          ],
+        ],
+      ),
+      body: _buildBody(state, favorites, showFavoritesOnly),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () =>
+            ref.read(productStateProvider.notifier).loadProducts(),
+        child: const Icon(Icons.refresh),
+      ),
+    );
+  }
 
-          if (state is ProductSuccess) {
-            return ListView.builder(
-              itemCount: state.products.length,
-              itemBuilder: (context, index) {
-                final product = state.products[index];
-                return ListTile(
-                  leading: Image.network(
-                    product.image,
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(Icons.image_not_supported, size: 50);
-                    },
-                  ),
-                  title: Text(product.title),
-                  subtitle: Text("\$${product.price.toStringAsFixed(2)}"),
-                );
+  Widget _buildBody(
+      ProductState state, Set<int> favorites, bool showFavoritesOnly) {
+    if (state is ProductLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state is ProductError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                state.message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () =>
+                    ref.read(productStateProvider.notifier).loadProducts(),
+                child: const Text("Tentar novamente"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (state is ProductSuccess) {
+      List<Product> products = state.products;
+
+      if (showFavoritesOnly) {
+        products = products.where((p) => favorites.contains(p.id)).toList();
+      }
+
+      if (products.isEmpty) {
+        return const Center(
+          child: Text("Nenhum produto favorito encontrado."),
+        );
+      }
+
+      return ListView.builder(
+        itemCount: products.length,
+        itemBuilder: (context, index) {
+          final product = products[index];
+          final isFavorite = favorites.contains(product.id);
+
+          return ListTile(
+            tileColor: isFavorite ? Colors.amber.shade50 : null,
+            leading: Image.network(
+              product.image,
+              width: 50,
+              height: 50,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(Icons.image_not_supported, size: 50);
               },
-            );
-          }
-
-          return const Center(
-            child: Text("Pressione o botão para carregar os produtos"),
+            ),
+            title: Text(
+              product.title,
+              style: TextStyle(
+                fontWeight: isFavorite ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            subtitle: Text("R\$ ${product.price.toStringAsFixed(2)}"),
+            trailing: IconButton(
+              icon: Icon(
+                isFavorite ? Icons.star : Icons.star_border,
+                color: isFavorite ? Colors.amber : Colors.grey,
+              ),
+              onPressed: () {
+                ref.read(favoritesProvider.notifier).toggleFavorite(product.id);
+              },
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ProductDetailPage(product: product),
+                ),
+              );
+            },
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: viewModel.loadProducts,
-        child: const Icon(Icons.download),
-      ),
+      );
+    }
+
+    return const Center(
+      child: Text("Pressione o botão para carregar os produtos"),
     );
   }
 }
