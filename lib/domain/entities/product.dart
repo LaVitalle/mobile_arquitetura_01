@@ -5,6 +5,8 @@ class Product {
   final String description;
   final String category;
   final String image;
+  final double rating;
+  final int ratingCount;
 
   const Product({
     this.id,
@@ -13,29 +15,9 @@ class Product {
     required this.description,
     required this.category,
     required this.image,
+    this.rating = 0,
+    this.ratingCount = 0,
   });
-
-  factory Product.fromJson(Map<String, dynamic> json) {
-    return Product(
-      id: json['id'] as int?,
-      title: (json['title'] ?? '') as String,
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
-      description: (json['description'] ?? '') as String,
-      category: (json['category'] ?? '') as String,
-      image: (json['image'] ?? '') as String,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      if (id != null) 'id': id,
-      'title': title,
-      'price': price,
-      'description': description,
-      'category': category,
-      'image': image,
-    };
-  }
 
   Product copyWith({
     int? id,
@@ -44,6 +26,8 @@ class Product {
     String? description,
     String? category,
     String? image,
+    double? rating,
+    int? ratingCount,
   }) {
     return Product(
       id: id ?? this.id,
@@ -52,6 +36,8 @@ class Product {
       description: description ?? this.description,
       category: category ?? this.category,
       image: image ?? this.image,
+      rating: rating ?? this.rating,
+      ratingCount: ratingCount ?? this.ratingCount,
     );
   }
 }

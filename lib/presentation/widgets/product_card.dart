@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 
-import '../models/product.dart';
+import '../../domain/entities/product.dart';
 
 class ProductCard extends StatelessWidget {
   final Product product;
+  final bool isFavorite;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onToggleFavorite;
 
   const ProductCard({
     super.key,
     required this.product,
+    required this.isFavorite,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    required this.onToggleFavorite,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      color: isFavorite ? Colors.amber.shade50 : null,
       child: ListTile(
         onTap: onTap,
         leading: SizedBox(
@@ -36,11 +41,22 @@ class ProductCard extends StatelessWidget {
           product.title,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontWeight: isFavorite ? FontWeight.bold : FontWeight.normal,
+          ),
         ),
         subtitle: Text('R\$ ${product.price.toStringAsFixed(2)}'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            IconButton(
+              icon: Icon(
+                isFavorite ? Icons.star : Icons.star_border,
+                color: isFavorite ? Colors.amber : Colors.grey,
+              ),
+              tooltip: 'Favoritar',
+              onPressed: onToggleFavorite,
+            ),
             IconButton(
               icon: const Icon(Icons.edit, color: Colors.blue),
               tooltip: 'Editar',

@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/product.dart';
-import '../services/product_service.dart';
+import '../../domain/entities/product.dart';
+import '../providers/providers.dart';
 import '../widgets/product_text_field.dart';
 
-class ProductFormScreen extends StatefulWidget {
+class ProductFormPage extends ConsumerStatefulWidget {
   final Product? initialProduct;
 
-  const ProductFormScreen({super.key, this.initialProduct});
+  const ProductFormPage({super.key, this.initialProduct});
 
   @override
-  State<ProductFormScreen> createState() => _ProductFormScreenState();
+  ConsumerState<ProductFormPage> createState() => _ProductFormPageState();
 }
 
-class _ProductFormScreenState extends State<ProductFormScreen> {
+class _ProductFormPageState extends ConsumerState<ProductFormPage> {
   final _formKey = GlobalKey<FormState>();
-  final ProductService _service = ProductService();
 
   late final TextEditingController _titleController;
   late final TextEditingController _priceController;
@@ -63,19 +63,16 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       image: _imageController.text.trim(),
     );
 
-    try {
-      final saved = _isEditing
-          ? await _service.updateProduct(product)
-          : await _service.addProduct(product);
+    final notifier = ref.read(productStateProvider.notifier);
 
+    try {
+      if (_isEditing) {
+        await notifier.updateProduct(product);
+      } else {
+        await notifier.addProduct(product);
+      }
       if (!mounted) return;
-      Navigator.of(context).pop(saved.copyWith(
-        title: product.title,
-        price: product.price,
-        description: product.description,
-        category: product.category,
-        image: product.image,
-      ));
+      Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -114,8 +111,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     if (v == null || v.trim().isEmpty) {
                       return 'Informe o preço';
                     }
-                    final parsed =
-                        double.tryParse(v.replaceAll(',', '.'));
+                    final parsed = double.tryParse(v.replaceAll(',', '.'));
                     if (parsed == null || parsed < 0) {
                       return 'Preço inválido';
                     }

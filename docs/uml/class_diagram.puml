@@ -1,0 +1,258 @@
+@startuml mobile_arquitetura_01
+title Diagrama de Classes - mobile_arquitetura_01
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+' ==========================================================
+package "domain" <<Rectangle>> {
+
+  class Product {
+    + id : int?
+    + title : String
+    + price : double
+    + description : String
+    + category : String
+    + image : String
+    + rating : double
+    + ratingCount : int
+    --
+    + copyWith(...) : Product
+  }
+
+  interface ProductRepository {
+    + getProducts() : Future<List<Product>>
+    + addProduct(p : Product) : Future<Product>
+    + updateProduct(p : Product) : Future<Product>
+    + deleteProduct(id : int) : Future<void>
+  }
+}
+
+' ==========================================================
+package "data" <<Rectangle>> {
+
+  class ProductModel {
+    + id : int?
+    + title : String
+    + price : double
+    + description : String
+    + category : String
+    + image : String
+    + rating : double
+    + ratingCount : int
+    --
+    + {static} fromJson(j : Map) : ProductModel
+    + {static} fromEntity(p : Product) : ProductModel
+    + toJson() : Map<String, dynamic>
+    + toEntity() : Product
+  }
+
+  class ProductRemoteDatasource {
+    - {static} _baseUrl : String
+    + client : AppHttpClient
+    --
+    + getProducts() : Future<List<ProductModel>>
+    + addProduct(p : ProductModel) : Future<ProductModel>
+    + updateProduct(p : ProductModel) : Future<ProductModel>
+    + deleteProduct(id : int) : Future<void>
+  }
+
+  class ProductLocalDatasource {
+    - _cache : List<ProductModel>?
+    --
+    + getProducts() : List<ProductModel>?
+    + saveProducts(list : List<ProductModel>) : void
+    + addProduct(p : ProductModel) : void
+    + updateProduct(p : ProductModel) : void
+    + removeProduct(id : int) : void
+  }
+
+  class ProductRepositoryImpl {
+    + remoteDatasource : ProductRemoteDatasource
+    + localDatasource : ProductLocalDatasource
+    --
+    + getProducts() : Future<List<Product>>
+    + addProduct(p : Product) : Future<Product>
+    + updateProduct(p : Product) : Future<Product>
+    + deleteProduct(id : int) : Future<void>
+  }
+}
+
+' ==========================================================
+package "core" <<Rectangle>> {
+
+  class Failure <<Exception>> {
+    + message : String
+  }
+
+  class AppHttpClient {
+    - _client : http.Client
+    --
+    + getList(url : String) : Future<List<dynamic>>
+    + post(url : String, body : Map) : Future<Map>
+    + put(url : String, body : Map) : Future<Map>
+    + delete(url : String) : Future<void>
+  }
+}
+
+' ==========================================================
+package "presentation - state" <<Rectangle>> {
+
+  abstract class ProductState
+
+  class ProductInitial
+  class ProductLoading
+  class ProductSuccess {
+    + products : List<Product>
+  }
+  class ProductError {
+    + message : String
+  }
+
+  ProductState <|-- ProductInitial
+  ProductState <|-- ProductLoading
+  ProductState <|-- ProductSuccess
+  ProductState <|-- ProductError
+}
+
+' ==========================================================
+package "presentation - notifiers" <<Rectangle>> {
+
+  class ProductNotifier {
+    + repository : ProductRepository
+    --
+    + loadProducts() : Future<void>
+    + addProduct(p : Product) : Future<void>
+    + updateProduct(p : Product) : Future<void>
+    + deleteProduct(id : int) : Future<void>
+  }
+
+  class FavoritesNotifier {
+    --
+    + toggleFavorite(id : int) : void
+  }
+
+  class ProductViewModel {
+    + repository : ProductRepository
+    + state : ValueNotifier<ProductState>
+    --
+    + loadProducts() : Future<void>
+  }
+}
+
+' ==========================================================
+package "presentation - providers" <<Rectangle>> {
+
+  class Providers <<top-level>> {
+    + httpClientProvider : Provider<AppHttpClient>
+    + remoteDatasourceProvider : Provider<ProductRemoteDatasource>
+    + localDatasourceProvider : Provider<ProductLocalDatasource>
+    + productRepositoryProvider : Provider<ProductRepository>
+    + productStateProvider : StateNotifierProvider
+    + favoritesProvider : StateNotifierProvider
+    + showFavoritesOnlyProvider : StateProvider<bool>
+    + favoritesCountProvider : Provider<int>
+  }
+}
+
+' ==========================================================
+package "presentation - pages" <<Rectangle>> {
+
+  class MyApp <<Widget>>
+  class HomePage <<Widget>>
+  class ProductPage <<Widget>> {
+    + initState()
+    - _openForm(product : Product?)
+    - _confirmDelete(product : Product)
+  }
+  class ProductDetailPage <<Widget>> {
+    + product : Product
+  }
+  class ProductFormPage <<Widget>> {
+    + initialProduct : Product?
+    --
+    - _submit() : Future<void>
+  }
+}
+
+' ==========================================================
+package "presentation - widgets" <<Rectangle>> {
+
+  class ProductCard <<Widget>> {
+    + product : Product
+    + isFavorite : bool
+    + onTap : VoidCallback
+    + onEdit : VoidCallback
+    + onDelete : VoidCallback
+    + onToggleFavorite : VoidCallback
+  }
+
+  class ProductTextField <<Widget>> {
+    + controller : TextEditingController
+    + label : String
+    + keyboardType : TextInputType
+    + maxLines : int
+    + validator : String? Function(String?)?
+  }
+}
+
+' ==========================================================
+' Relacionamentos
+' ==========================================================
+
+' Implementação do contrato
+ProductRepositoryImpl ..|> ProductRepository
+
+' Composição dentro do repo
+ProductRepositoryImpl *-- ProductRemoteDatasource
+ProductRepositoryImpl *-- ProductLocalDatasource
+
+' Mapeamento entre camadas
+ProductModel ..> Product : maps
+ProductRepositoryImpl ..> ProductModel : uses
+
+' Rede
+ProductRemoteDatasource *-- AppHttpClient
+AppHttpClient ..> Failure : throws
+ProductRepositoryImpl ..> Failure : throws
+
+' Cache
+ProductLocalDatasource o-- ProductModel : caches
+
+' Notifier -> repositório (DI via providers)
+ProductNotifier --> ProductRepository
+ProductViewModel --> ProductRepository
+ProductNotifier --> ProductState : emits
+ProductViewModel --> ProductState : emits
+
+' Telas consomem providers/notifiers
+ProductPage ..> Providers
+ProductPage ..> ProductNotifier
+ProductPage ..> FavoritesNotifier
+ProductPage ..> ProductCard
+ProductPage ..> ProductDetailPage
+ProductPage ..> ProductFormPage
+
+ProductFormPage ..> Providers
+ProductFormPage ..> ProductNotifier
+ProductFormPage ..> ProductTextField
+
+ProductDetailPage ..> Providers
+ProductDetailPage ..> FavoritesNotifier
+
+HomePage ..> ProductPage : navigates
+
+' App raiz
+MyApp *-- HomePage
+MyApp *-- ProductPage
+
+' Providers criam dependências
+Providers ..> AppHttpClient
+Providers ..> ProductRemoteDatasource
+Providers ..> ProductLocalDatasource
+Providers ..> ProductRepositoryImpl
+Providers ..> ProductNotifier
+Providers ..> FavoritesNotifier
+
+@enduml
